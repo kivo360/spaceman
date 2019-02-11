@@ -1,1 +1,1 @@
-from funsuite.prototypes.checkpointing.main import Checkpoint as Spaceman
+from .main import Checkpoint as Spaceman

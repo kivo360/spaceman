@@ -18,7 +18,7 @@ from spaceman import Spaceman
 space_man = Spaceman()
 
 with space_man as space:
-    info = space.store([{}, 1, 2]) # Returns all information pertaining the storage
+    info = space.store([{}, 1, 2]) # Returns all information pertaining the storage (location,)
     unserialized_information = space.load()
 
 ```

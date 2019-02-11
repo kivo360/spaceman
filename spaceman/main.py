@@ -11,10 +11,11 @@ store = Store('localhost').create_lib("checkpoint").get_store()['checkpoint']
 
 # TODO: Remove duplications in code.
 
+
 class CheckpointInformation(object):
     def __init__(self, *args, **kwargs):
         pass
-    
+
     def __setattr__(self, name, value):
         self.__dict__[name] = value
 
@@ -22,6 +23,7 @@ class CheckpointInformation(object):
 # TODO: Rename to SPACEMAN! Spaceman!!!! It's a checkpointing system
 class Checkpoint(object):
     """ Library used to checkpoint your models. """
+
     def __init__(self, storage_type="local", store_folder="/tmp/checkpoint", bucket="checkpoint", s3_creds={}, use_step=False, step_back=1, mongo_host="localhost", mongo_store="global", **kwargs):
         """
             params:
@@ -31,37 +33,36 @@ class Checkpoint(object):
                 step_back: int
                     - The number of steps back we want to look with a given load query. Knowing this in advanced will allow us to get any information 
         """
-        self._store = Store(mongo_host).create_lib(mongo_store).get_store()[mongo_store]
+        self._store = Store(mongo_host).create_lib(
+            mongo_store).get_store()[mongo_store]
         self.storage_type = storage_type
         self.store_folder = store_folder
         self.checkpoint_info = CheckpointInformation
         self.use_step = use_step
         self.step_back = 1
-        
 
         # Create a folder if it doesn't exist yet
         if self.storage_type == "local":
             pathlib.Path(store_folder).mkdir(parents=True, exist_ok=True)
-        
+
         # We haven't planned for s3 yet. Do so after
     def valid(self, name):
         return not name[0].isdigit() and all(c.isalnum() or c == '-' for c in name)
-    
 
     def count_step(self, query):
         if not isinstance(query, dict):
             raise TypeError("Query object must be a dict")
-        
+
         # Pop the timestamp here
         ts = query.pop("timestamp", None)
         query["limit"] = 2
-        
+
         # set a current limit
         last_two = list(self._store.query_latest(query))
         last = None
         if len(last_two) > 0:
             last = last_two[0]
-        
+
         step_number = 0
         if last is not None:
             current_step = last.get("step")
@@ -72,22 +73,23 @@ class Checkpoint(object):
         query['step'] = step_number
         return query
 
-    
     def store(self, obj, name="", is_parquet=False, query={"type": "general"}, current_time=True, generated_name=True, extension="cereal"):
         if not isinstance(query, dict):
             raise TypeError("Query object must be a dictionary")
-        
+
         query_type = query.get("type", None)
         query_timestamp = query.get("timestamp", None)
         if query_type is None:
-            raise KeyError("You need to have 'type' inside of the query object to specify what you're looking for.")
+            raise KeyError(
+                "You need to have 'type' inside of the query object to specify what you're looking for.")
         if current_time == True:
             query['timestamp'] = time.time()
         else:
             if query_timestamp is None:
-                raise KeyError("Searchable query must have a 'timestamp'. If you plan on using the current time. Please set that back to true (current_time=True) in parameters")
+                raise KeyError(
+                    "Searchable query must have a 'timestamp'. If you plan on using the current time. Please set that back to true (current_time=True) in parameters")
         # serialized_obj = pyarrow.serialize(obj).to_buffer()
-        
+
         file_name = ""
         if generated_name == True:
             slug = generate_slug()
@@ -95,12 +97,14 @@ class Checkpoint(object):
             # print(file_name)
         else:
             if name == "":
-                raise ValueError("Name shouldn't be left blank. Please either allow for a generated name (generated_name=True) or have a valid name")
+                raise ValueError(
+                    "Name shouldn't be left blank. Please either allow for a generated name (generated_name=True) or have a valid name")
             else:
                 if self.valid(name) == False:
-                    raise NameError("Name must be letters, numbers and '-' only. Nothing else is allowed")
-                
-                file_name = f"{name}.{extension}" 
+                    raise NameError(
+                        "Name must be letters, numbers and '-' only. Nothing else is allowed")
+
+                file_name = f"{name}.{extension}"
         self.checkpoint_info.name = file_name
         self.checkpoint_info.is_s3 = False
         self.checkpoint_info.is_local = True
@@ -108,10 +112,10 @@ class Checkpoint(object):
         self.checkpoint_info.folder = self.storage_type
         self.checkpoint_info.loc = f"{self.store_folder}/{file_name}"
 
-        print(f"Storing object of type: {query_type}. {self.store_folder}/{file_name}")
+        print(
+            f"Storing object of type: {query_type}. {self.store_folder}/{file_name}")
         bff = cloudpickle.dumps(obj)
         pathlib.Path(f"{self.store_folder}/{file_name}").write_bytes(bff)
-
 
         query['loc'] = f"{self.store_folder}/{file_name}"
         query['filename'] = file_name
@@ -125,24 +129,48 @@ class Checkpoint(object):
 
         return self.checkpoint_info
 
-    def load(self, obj_loc=None, get_latest=True, storage_type="local", query={"type": "general"}):
+    def load(self, obj_loc=None, get_latest=True, storage_type="local", query={"type": "general"}, is_before=False, minutes=None, seconds=30):
+        # TODO: Add steps option.
+        # TODO: Add Seconds Before
+        total_seconds = 0
+        is_timefore = False
+        _timestamp = query.get("timestamp")
+        if is_before == True and _timestamp is not None:
+            is_timefore = True
+            if minutes is not None:
+                total_seconds = 60 * minutes
+            elif seconds is not None:
+                total_seconds = seconds
+
         if self.use_step:
+            # TODO: Get the number of steps and calculate everything necessary from here
             query.pop("step", None)
         self.current_file = None
         if storage_type == "local":
             if obj_loc is not None:
                 p = pathlib.Path(obj_loc)
                 if p.exists():
-                    cerealized  = p.read_bytes()
+                    cerealized = p.read_bytes()
                     self.current_file = cloudpickle.loads(cerealized)
                     return self.current_file
-            elif get_latest == True:
+            elif get_latest == True and is_timefore == False:
                 files = list(self._store.query_latest(query))
                 if len(files) > 0:
                     current_file_record = files[0]
                     p = pathlib.Path(current_file_record['loc'])
-                    if p.exists(): 
-                        cerealized  = p.read_bytes()
+                    if p.exists():
+                        cerealized = p.read_bytes()
+                        self.current_file = cloudpickle.loads(cerealized)
+                        return self.current_file
+
+            elif is_timefore == True:
+                query['timestamp'] = _timestamp-(total_seconds)
+                file = self.store.query_closest(query)
+                if file is not None:
+                    current_file_record = file
+                    p = pathlib.Path(current_file_record['loc'])
+                    if p.exists():
+                        cerealized = p.read_bytes()
                         self.current_file = cloudpickle.loads(cerealized)
                         return self.current_file
 
@@ -150,9 +178,10 @@ class Checkpoint(object):
 
     def __enter__(self):
         return self
-    
+
     def __exit__(self, exception_type, exception_value, traceback):
         print("")
+
 
 """
     with Checkpoint() as check:
@@ -165,6 +194,7 @@ class Checkpoint(object):
 if __name__ == "__main__":
     with Checkpoint() as check:
         info = check.store(["one", {}])
-        print(f"\nname: {info.name}\nquery: {info.query}\nlocation: {info.loc}")
+        print(
+            f"\nname: {info.name}\nquery: {info.query}\nlocation: {info.loc}")
         f = check.load(query=info.query)
         print(f)
