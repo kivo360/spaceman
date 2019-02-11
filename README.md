@@ -2,7 +2,7 @@
 Spaceman is the checkpoint library for funguana's internal systems. We use it to save models and internal states for later use.
 
 ## Installation
-
+`Spaceman` requires mongodb for everything to function. Please follow the mongodb installation tutorials first. 
 ### On linux
 
 ### On Windows
@@ -22,3 +22,5 @@ with space_man as space:
     unserialized_information = space.load()
 
 ```
+
+### Using Lookback functionality
