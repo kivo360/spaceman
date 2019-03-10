@@ -135,9 +135,11 @@ class Checkpoint(object):
         self.checkpoint_info.folder = self.store_folder
         self.checkpoint_info.loc = f"{self.store_folder}/{query['filename']}"
         self.checkpoint_info.timestamp = query['timestamp']
+        self.checkpoint_info.query = query
         
         query['loc'] = info['loc']
         query['provider'] = info['provider']
+
         self._store.store(query)
         # logger.add(query)
         return self.checkpoint_info
