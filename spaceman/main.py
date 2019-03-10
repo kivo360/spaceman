@@ -1,12 +1,22 @@
 import pathlib
+import sys
 import time
 # TODO: Replace with cloudpickle. Pyarrow is great for in-memory and tabular data, but it sucks for everything else.
 import uuid
+from logging import StreamHandler
 
 import cloudpickle
 from coolname import generate_slug
 from funtime import Store
+from loguru import logger
 
+from spaceman.meta import Meta
+from spaceman.store import SpaceStorage
+
+logger.add(StreamHandler(sys.stderr), format="{message}")
+logger.add("file_test.log")
+
+# TODO: Move into an internal library.
 store = Store('localhost').create_lib("checkpoint").get_store()['checkpoint']
 
 # TODO: Remove duplications in code.
@@ -35,8 +45,12 @@ class Checkpoint(object):
         """
         self._store = Store(mongo_host).create_lib(
             mongo_store).get_store()[mongo_store]
+        self.meta = Meta()
+        self.storage = SpaceStorage(
+            provider=storage_type, folder_bucket_name=bucket)
         self.storage_type = storage_type
         self.store_folder = store_folder
+        self.bucket = bucket
         self.checkpoint_info = CheckpointInformation
         self.use_step = use_step
         self.step_back = 1
@@ -74,60 +88,75 @@ class Checkpoint(object):
         return query
 
     def store(self, obj, name="", is_parquet=False, query={"type": "general"}, current_time=True, generated_name=True, extension="cereal"):
-        if not isinstance(query, dict):
-            raise TypeError("Query object must be a dictionary")
+        query["name"] = name
+        query = self.meta.store_meta(
+            query, _is_current_time=current_time, generate_name=generated_name)
+        
+        info = self.storage.add(obj, query['filename'])
 
-        query_type = query.get("type", None)
-        query_timestamp = query.get("timestamp", None)
-        if query_type is None:
-            raise KeyError(
-                "You need to have 'type' inside of the query object to specify what you're looking for.")
-        if current_time == True:
-            query['timestamp'] = time.time()
-        else:
-            if query_timestamp is None:
-                raise KeyError(
-                    "Searchable query must have a 'timestamp'. If you plan on using the current time. Please set that back to true (current_time=True) in parameters")
-        # serialized_obj = pyarrow.serialize(obj).to_buffer()
+        # logger.info(query)
+        # logger.info(info)
+        # if not isinstance(query, dict):
+        #     raise TypeError("Query object must be a dictionary")
 
-        file_name = ""
-        if generated_name == True:
-            slug = generate_slug()
-            file_name = f"{slug}.{extension}"
-            # print(file_name)
-        else:
-            if name == "":
-                raise ValueError(
-                    "Name shouldn't be left blank. Please either allow for a generated name (generated_name=True) or have a valid name")
-            else:
-                if self.valid(name) == False:
-                    raise NameError(
-                        "Name must be letters, numbers and '-' only. Nothing else is allowed")
+        # query_type = query.get("type", None)
+        # query_timestamp = query.get("timestamp", None)
+        # if query_type is None:
+        #     raise KeyError(
+        #         "You need to have 'type' inside of the query object to specify what you're looking for.")
+        # if current_time == True:
+        #     query['timestamp'] = time.time()
+        # else:
+        #     if query_timestamp is None:
+        #         raise KeyError(
+        #             "Searchable query must have a 'timestamp'. If you plan on using the current time. Please set that back to true (current_time=True) in parameters")
+        # # serialized_obj = pyarrow.serialize(obj).to_buffer()
 
-                file_name = f"{name}.{extension}"
-        self.checkpoint_info.name = file_name
-        self.checkpoint_info.is_s3 = False
-        self.checkpoint_info.is_local = True
-        self.checkpoint_info.bucket = ""
-        self.checkpoint_info.folder = self.storage_type
-        self.checkpoint_info.loc = f"{self.store_folder}/{file_name}"
+        # file_name = ""
+        # if generated_name == True:
+        #     slug = generate_slug()
+        #     file_name = f"{slug}.{extension}"
+        #     # print(file_name)
+        # else:
+        #     if name == "":
+        #         raise ValueError(
+        #             "Name shouldn't be left blank. Please either allow for a generated name (generated_name=True) or have a valid name")
+        #     else:
+        #         if self.valid(name) == False:
+        #             raise NameError(
+        #                 "Name must be letters, numbers and '-' only. Nothing else is allowed")
 
-        print(
-            f"Storing object of type: {query_type}. {self.store_folder}/{file_name}")
-        bff = cloudpickle.dumps(obj)
-        pathlib.Path(f"{self.store_folder}/{file_name}").write_bytes(bff)
-
-        query['loc'] = f"{self.store_folder}/{file_name}"
-        query['filename'] = file_name
-        query['name'] = name
-        if self.use_step:
-            query = self.count_step(query)
+        #         file_name = f"{name}.{extension}"
+        self.checkpoint_info.name = query['name']
+        self.checkpoint_info.file_name = query['filename']
+        self.checkpoint_info.provider = self.storage_type
+        self.checkpoint_info.bucket = self.bucket
+        self.checkpoint_info.type = query['type']
+        self.checkpoint_info.folder = self.store_folder
+        self.checkpoint_info.loc = f"{self.store_folder}/{query['filename']}"
+        self.checkpoint_info.timestamp = query['timestamp']
+        
+        query['loc'] = info['loc']
+        query['provider'] = info['provider']
         self._store.store(query)
-        query.pop("loc")
-        print("Success ... ")
-        self.checkpoint_info.query = query
-
+        # logger.add(query)
         return self.checkpoint_info
+        # print(
+        #     f"Storing object of type: {query_type}. {self.store_folder}/{file_name}")
+        # bff = cloudpickle.dumps(obj)
+        # pathlib.Path(f"{self.store_folder}/{file_name}").write_bytes(bff)
+
+        # query['loc'] = f"{self.store_folder}/{file_name}"
+        # query['filename'] = file_name
+        # query['name'] = name
+        # if self.use_step:
+        #     query = self.count_step(query)
+        # self._store.store(query)
+        # query.pop("loc")
+        # print("Success ... ")
+        # self.checkpoint_info.query = query
+
+        # return self.checkpoint_info
 
     def load(self, obj_loc=None, get_latest=True, storage_type="local", query={"type": "general"}, is_before=False, minutes=None, seconds=30):
         # TODO: Add steps option.

@@ -1,0 +1,1 @@
+""" Handle metadata for the queries """

@@ -3,13 +3,33 @@ import codecs
 import sys
 from shutil import rmtree
 from setuptools import setup, find_packages, Command
-
+from setuptools.command.test import test as TestCommand
 
 here = os.path.abspath(os.path.dirname(__file__))
 
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
+
+
+# class PyTest(TestCommand):
+#     user_options = [("pytest-args=", "a", "Arguments to pass to pytest")]
+
+#     def initialize_options(self):
+#         TestCommand.initialize_options(self)
+#         self.pytest_args = ""
+
+#     def run_tests(self):
+#         import shlex
+
+#         # import here, cause outside the eggs aren't loaded
+#         import pytest
+
+#         errno = pytest.main(shlex.split(self.pytest_args))
+#         sys.exit(errno)
+
+
+
 
 class UploadCommand(Command):
     """Support setup.py publish."""
@@ -44,20 +64,29 @@ class UploadCommand(Command):
 
 setup(
     name="spaceman",
-    version="0.1.2",
+    version="0.1.4",
     author="Kevin Hill",
     author_email="kevin@funguana.com",
     description="Test everything inside of this suite if you can. Indicators, machine learning models and evern ordering.",
+    
     long_description=long_description,
     long_description_content_type="text/markdown",
     py_modules=["spaceman"],
-    install_requires=['cloudpickle', 'funtime', 'coolname'], 
+    install_requires=['cloudpickle', 'funtime',
+                      'coolname', "arctic_latest", "boto3", "s3fs", "loguru"],
+    setup_requires=[
+        'pytest-runner',
+    ],
+    tests_require=[
+        "pytest"
+    ],
     packages=find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
+    # "test": PyTest
     cmdclass={"upload": UploadCommand}
     # entry_points='''
     #     [console_scripts]
