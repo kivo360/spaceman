@@ -191,7 +191,6 @@ class Checkpoint(object):
 if __name__ == "__main__":
     with Checkpoint() as check:
         info = check.store(["one", {}])
-        
         f = check.load(query=info.query)
         print(f)
 
