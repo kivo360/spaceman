@@ -91,42 +91,6 @@ class Checkpoint(object):
         query["name"] = name
         query = self.meta.store_meta(
             query, _is_current_time=current_time, generate_name=generated_name)
-        
-        info = self.storage.add(obj, query['filename'])
-
-        # logger.info(query)
-        # logger.info(info)
-        # if not isinstance(query, dict):
-        #     raise TypeError("Query object must be a dictionary")
-
-        # query_type = query.get("type", None)
-        # query_timestamp = query.get("timestamp", None)
-        # if query_type is None:
-        #     raise KeyError(
-        #         "You need to have 'type' inside of the query object to specify what you're looking for.")
-        # if current_time == True:
-        #     query['timestamp'] = time.time()
-        # else:
-        #     if query_timestamp is None:
-        #         raise KeyError(
-        #             "Searchable query must have a 'timestamp'. If you plan on using the current time. Please set that back to true (current_time=True) in parameters")
-        # # serialized_obj = pyarrow.serialize(obj).to_buffer()
-
-        # file_name = ""
-        # if generated_name == True:
-        #     slug = generate_slug()
-        #     file_name = f"{slug}.{extension}"
-        #     # print(file_name)
-        # else:
-        #     if name == "":
-        #         raise ValueError(
-        #             "Name shouldn't be left blank. Please either allow for a generated name (generated_name=True) or have a valid name")
-        #     else:
-        #         if self.valid(name) == False:
-        #             raise NameError(
-        #                 "Name must be letters, numbers and '-' only. Nothing else is allowed")
-
-        #         file_name = f"{name}.{extension}"
         self.checkpoint_info.name = query['name']
         self.checkpoint_info.file_name = query['filename']
         self.checkpoint_info.provider = self.storage_type
@@ -136,29 +100,18 @@ class Checkpoint(object):
         self.checkpoint_info.loc = f"{self.store_folder}/{query['filename']}"
         self.checkpoint_info.timestamp = query['timestamp']
         self.checkpoint_info.query = query
+
+        query['loc'] = f"{self.store_folder}/{query['filename']}"
+        query['provider'] = self.storage_type
         
-        query['loc'] = info['loc']
-        query['provider'] = info['provider']
+        try:
+            self.storage.add(obj, query['filename'])
+            self._store.store(query)
+        except Exception as e:
+            logger.exception(e)
 
-        self._store.store(query)
-        # logger.add(query)
         return self.checkpoint_info
-        # print(
-        #     f"Storing object of type: {query_type}. {self.store_folder}/{file_name}")
-        # bff = cloudpickle.dumps(obj)
-        # pathlib.Path(f"{self.store_folder}/{file_name}").write_bytes(bff)
-
-        # query['loc'] = f"{self.store_folder}/{file_name}"
-        # query['filename'] = file_name
-        # query['name'] = name
-        # if self.use_step:
-        #     query = self.count_step(query)
-        # self._store.store(query)
-        # query.pop("loc")
-        # print("Success ... ")
-        # self.checkpoint_info.query = query
-
-        # return self.checkpoint_info
+        
 
     def load(self, obj_loc=None, get_latest=True, storage_type="local", query={"type": "general"}, is_before=False, minutes=None, seconds=30):
         # TODO: Add steps option.
@@ -186,25 +139,38 @@ class Checkpoint(object):
                     return self.current_file
             elif get_latest == True and is_timefore == False:
                 files = list(self._store.query_latest(query))
+
                 if len(files) > 0:
                     current_file_record = files[0]
-                    p = pathlib.Path(current_file_record['loc'])
-                    if p.exists():
-                        cerealized = p.read_bytes()
-                        self.current_file = cloudpickle.loads(cerealized)
-                        return self.current_file
+                    meta_data = self.storage.get(current_file_record['filename'])
+                    if meta_data['file'] is not None:
+                        return meta_data['file']
+                    return
+                    # p = pathlib.Path(current_file_record['loc'])
+                    # if p.exists():
+                    #     cerealized = p.read_bytes()
+                    #     self.current_file = cloudpickle.loads(cerealized)
+                    #     return self.current_file
 
             elif is_timefore == True:
                 query['timestamp'] = _timestamp-(total_seconds)
                 file = self.store.query_closest(query)
+                # print(file)
                 if file is not None:
                     current_file_record = file
-                    p = pathlib.Path(current_file_record['loc'])
-                    if p.exists():
-                        cerealized = p.read_bytes()
-                        self.current_file = cloudpickle.loads(cerealized)
-                        return self.current_file
-
+                    meta_data = self.storage.get(
+                        current_file_record['filename']
+                    )
+                    
+                    if meta_data['file'] is not None:
+                        return meta_data['file']
+                    return
+                    # p = pathlib.Path(current_file_record['loc'])
+                    # if p.exists():
+                    #     cerealized = p.read_bytes()
+                    #     self.current_file = cloudpickle.loads(cerealized)
+                    #     return self.current_file
+        # Place in s3 storage type and 
         return self.current_file
 
     def __enter__(self):
@@ -225,7 +191,7 @@ class Checkpoint(object):
 if __name__ == "__main__":
     with Checkpoint() as check:
         info = check.store(["one", {}])
-        print(
-            f"\nname: {info.name}\nquery: {info.query}\nlocation: {info.loc}")
+        
         f = check.load(query=info.query)
         print(f)
+

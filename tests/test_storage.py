@@ -22,6 +22,7 @@ def test_get_s3_storage():
         provider="s3", local_folder=local_folder, folder_bucket_name="poop-dicks")
     file_meta = storage.get("helloworld.txt")
 
+
     assert file_meta is not None
     assert file_meta['file'] is not None
     assert file_meta['exist'] == True

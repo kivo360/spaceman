@@ -64,7 +64,7 @@ class UploadCommand(Command):
 
 setup(
     name="spaceman",
-    version="0.1.4",
+    version="0.1.6",
     author="Kevin Hill",
     author_email="kevin@funguana.com",
     description="Test everything inside of this suite if you can. Indicators, machine learning models and evern ordering.",
