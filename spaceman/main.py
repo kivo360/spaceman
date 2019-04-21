@@ -4,7 +4,7 @@ import time
 # TODO: Replace with cloudpickle. Pyarrow is great for in-memory and tabular data, but it sucks for everything else.
 import uuid
 from logging import StreamHandler
-
+from crayons import blue, magenta
 import cloudpickle
 from coolname import generate_slug
 from funtime import Store
@@ -103,7 +103,7 @@ class Checkpoint(object):
 
         query['loc'] = f"{self.store_folder}/{query['filename']}"
         query['provider'] = self.storage_type
-        
+
         try:
             self.storage.add(obj, query['filename'])
             self._store.store(query)
@@ -111,9 +111,8 @@ class Checkpoint(object):
             logger.exception(e)
 
         return self.checkpoint_info
-        
 
-    def load(self, obj_loc=None, get_latest=True, storage_type="local", query={"type": "general"}, is_before=False, minutes=None, seconds=30):
+    def load(self, obj_loc=None, get_latest=True, storage_type="local", query={"type": "general"}, is_before=False, minutes=None, seconds=30, already_shifted=False):
         # TODO: Add steps option.
         # TODO: Add Seconds Before
         total_seconds = 0
@@ -121,10 +120,13 @@ class Checkpoint(object):
         _timestamp = query.get("timestamp")
         if is_before == True and _timestamp is not None:
             is_timefore = True
+
             if minutes is not None:
                 total_seconds = 60 * minutes
             elif seconds is not None:
                 total_seconds = seconds
+
+        # Add a variable to say the shift already exist. Ensure to add that here
 
         if self.use_step:
             # TODO: Get the number of steps and calculate everything necessary from here
@@ -142,7 +144,8 @@ class Checkpoint(object):
 
                 if len(files) > 0:
                     current_file_record = files[0]
-                    meta_data = self.storage.get(current_file_record['filename'])
+                    meta_data = self.storage.get(
+                        current_file_record['filename'])
                     if meta_data['file'] is not None:
                         return meta_data['file']
                     return
@@ -153,15 +156,22 @@ class Checkpoint(object):
                     #     return self.current_file
 
             elif is_timefore == True:
-                query['timestamp'] = _timestamp-(total_seconds)
-                file = self.store.query_closest(query)
-                # print(file)
+                if already_shifted == False:
+                    query['timestamp'] = _timestamp-(total_seconds)
+
+                # print(blue(query))
+                timestamp = float(int(query['timestamp']))
+                query["timestamp"] = timestamp
+                # print(blue(timestamp))
+                file = self._store.query_closest(query)
+                # files = self._store.query_latest(query)
+                # print(magenta(file))
                 if file is not None:
                     current_file_record = file
                     meta_data = self.storage.get(
                         current_file_record['filename']
                     )
-                    
+
                     if meta_data['file'] is not None:
                         return meta_data['file']
                     return
@@ -170,7 +180,7 @@ class Checkpoint(object):
                     #     cerealized = p.read_bytes()
                     #     self.current_file = cloudpickle.loads(cerealized)
                     #     return self.current_file
-        # Place in s3 storage type and 
+        # Place in s3 storage type and
         return self.current_file
 
     def __enter__(self):
@@ -193,4 +203,3 @@ if __name__ == "__main__":
         info = check.store(["one", {}])
         f = check.load(query=info.query)
         print(f)
-

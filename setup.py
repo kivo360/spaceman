@@ -64,10 +64,10 @@ class UploadCommand(Command):
 
 setup(
     name="spaceman",
-    version="0.1.7",
+    version="0.1.9",
     author="Kevin Hill",
     author_email="kevin@funguana.com",
-    description="Test everything inside of this suite if you can. Indicators, machine learning models and evern ordering.",
+    description="Abstracted storage library. Allows for looking backwards",
     
     long_description=long_description,
     long_description_content_type="text/markdown",
