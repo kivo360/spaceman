@@ -160,7 +160,7 @@ class Checkpoint(object):
                     query['timestamp'] = _timestamp-(total_seconds)
 
                 # print(blue(query))
-                timestamp = float(int(query['timestamp']))
+                timestamp = float(query['timestamp'])
                 query["timestamp"] = timestamp
                 # print(blue(timestamp))
                 file = self._store.query_closest(query)
