@@ -184,10 +184,13 @@ class Checkpoint(object):
         return self.current_file
 
     def __enter__(self):
-        return self
+        try:
+            return self
+        except Exception as e:
+            err = e
 
     def __exit__(self, exception_type, exception_value, traceback):
-        print("")
+        pass
 
 
 """
