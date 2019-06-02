@@ -12,6 +12,7 @@ pytest-runner = "*"
 "boto3" = "*"
 "s3fs" = "*"
 loguru = "*"
+"urllib3" = "*"
 
 [dev-packages]
 pylint = "*"
