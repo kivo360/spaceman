@@ -16,10 +16,7 @@ from spaceman.store import SpaceStorage
 logger.add(StreamHandler(sys.stderr), format="{message}")
 logger.add("file_test.log")
 
-# TODO: Move into an internal library.
-store = Store('localhost').create_lib("checkpoint").get_store()['checkpoint']
 
-# TODO: Remove duplications in code.
 
 
 class CheckpointInformation(object):

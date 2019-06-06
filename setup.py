@@ -64,7 +64,7 @@ class UploadCommand(Command):
 
 setup(
     name="spaceman",
-    version="0.2.0",
+    version="0.2.1",
     author="Kevin Hill",
     author_email="kevin@funguana.com",
     description="Abstracted storage library. Allows for looking backwards dynamically and allows for quick custom storage to Amazaon S3",
